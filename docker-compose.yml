@@ -1,0 +1,53 @@
+version: '3.8'
+
+networks:
+    absolut-shoper-network:
+        driver: ${NETWORKS_DRIVER:-bridge}
+    absolut-network:
+        name: absolut-network
+        driver: ${NETWORKS_DRIVER:-bridge}
+
+volumes:
+  composer: {}
+  redis_data: {}
+
+services:
+
+    nginx:
+      build:
+        context: ./docker/nginx
+        args:
+          PGID: "${PGID:-1006}"
+          PUID: "${PUID:-1006}"
+      depends_on:
+        - php
+      working_dir: /var/www
+      volumes:
+        - ./app:/var/www
+        - ./app/var/log/nginx:/var/log/nginx:delegated
+      ports:
+        - "127.0.0.1:2106:80"
+      restart: unless-stopped
+      container_name: absolut-nginx
+      networks:
+        - absolut-shoper-network
+
+    php:
+      build:
+        args:
+          PUID: "${PUID:-1006}"
+          PGID: "${PGID:-1006}"
+        context: ./docker/php
+      volumes:
+        - ./app:/var/www:rw
+        - composer:/home/www-data/.composer:rw
+      environment:
+        - PHP_DATE_TIMEZONE=${PHP_DATE_TIMEZONE:-Europe/Moscow}
+        - PUID=${PUID}
+      user: www-data
+      restart: unless-stopped
+      container_name: absolut-php
+      networks:
+        - absolut-network
+        - absolut-shoper-network
+

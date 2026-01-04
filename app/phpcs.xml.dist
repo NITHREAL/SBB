@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/squizlabs/php_codesniffer/phpcs.xsd">
+
+    <arg value= "s"/>
+    <arg name="basepath" value="."/>
+    <arg name="cache" value=".phpcs-cache"/>
+    <arg name="colors"/>
+    <arg name="extensions" value="php"/>
+
+    <rule ref="PSR12"/>
+
+    <exclude-pattern>app/Orchid/Screens/*</exclude-pattern>
+    <exclude-pattern>app/Orchid/Layouts/*</exclude-pattern>
+    <exclude-pattern>app/database/migrations/*</exclude-pattern>
+    <exclude-pattern>tests/Pest</exclude-pattern>
+
+    <file>app/</file>
+    <file>database/</file>
+    <file>routes/</file>
+    <file>tests/</file>
+
+</ruleset>

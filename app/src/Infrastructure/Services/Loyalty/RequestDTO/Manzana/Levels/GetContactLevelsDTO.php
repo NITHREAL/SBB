@@ -1,0 +1,40 @@
+<?php
+
+namespace Infrastructure\Services\Loyalty\RequestDTO\Manzana\Levels;
+
+use Illuminate\Support\Arr;
+use Infrastructure\Services\Loyalty\RequestDTO\BaseDTO;
+
+class GetContactLevelsDTO extends BaseDTO
+{
+    public function __construct(
+        private readonly string $sessionId,
+        private readonly string $contactId,
+        private readonly ?string $settingLevelId,
+    ) {
+    }
+
+    public static function make(array $data): self
+    {
+        return new self(
+            Arr::get($data, 'sessionId'),
+            Arr::get($data, 'contactId'),
+            Arr::get($data, 'settingLevelId'),
+        );
+    }
+
+    public function getSessionId(): string
+    {
+        return $this->sessionId;
+    }
+
+    public function getContactId(): string
+    {
+        return $this->contactId;
+    }
+
+    public function getSettingLevelId(): ?string
+    {
+        return $this->settingLevelId;
+    }
+}

@@ -1,0 +1,74 @@
+table.matrix thead th {
+  color: #4a5568;
+}
+table.matrix tbody th div[data-controller=checkbox] {
+  display: flex;
+  justify-content: center;
+}
+
+.autocomplete {
+  position: relative;
+}
+.autocomplete .autocomplete-list {
+  display: none;
+  position: absolute;
+  background-color: #edeef0;
+  border: solid 1px rgba(0, 0, 0, 0.1);
+  margin: 0;
+  padding: 0;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  list-style: none;
+  z-index: 9999999;
+}
+.autocomplete .autocomplete-list.show {
+  display: block;
+}
+.autocomplete .autocomplete-list li {
+  padding: 3px 15px;
+  margin-bottom: 3px;
+  background-color: #fff;
+}
+.autocomplete .autocomplete-list li:last-of-type {
+  margin-bottom: 0;
+}
+.autocomplete .autocomplete-list li:hover {
+  background-color: #efefef;
+  cursor: pointer;
+}
+.autocomplete .autocomplete-list li .autocomplete-sublabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: black;
+}
+
+.btn-bordered {
+  border: 1px solid gray !important;
+}
+
+.user-chat-message {
+  background-color: #ffdb4d;
+  padding: 5px;
+  text-align: center;
+}
+
+.admin-chat-message {
+  background-color: #48bb78;
+  padding: 5px;
+  text-align: center;
+}
+
+.service-chat-message {
+  background-color: #3869d4;
+  color: #ffffff;
+  padding: 5px;
+  text-align: center;
+}
+
+#support-menu-counter {
+  padding-left: 12px;
+  font-weight: 700;
+  color: coral;
+  font-size: 16px;
+}

@@ -1,0 +1,104 @@
+version: '3.8'
+
+networks:
+  absolut-shoper-network:
+    driver: ${NETWORKS_DRIVER:-bridge}
+  absolut-network:
+    name: absolut-network
+    driver: ${NETWORKS_DRIVER:-bridge}
+
+  default:
+    external:
+      name: br0
+
+volumes:
+  composer: {}
+  redis_data: {}
+
+services:
+
+  nginx:
+    build:
+      context: ./docker/nginx
+      args:
+        PGID: "${PGID:-1006}"
+        PUID: "${PUID:-1006}"
+    depends_on:
+      - php
+    working_dir: /var/www
+    volumes:
+      - ./app:/var/www
+      - ./app/var/log/nginx:/var/log/nginx:delegated
+    ports:
+      - "127.0.0.1:2106:80"
+    restart: unless-stopped
+    container_name: absolut-nginx
+    networks:
+      - absolut-shoper-network
+
+  php:
+    build:
+      args:
+        PUID: "${PUID:-1006}"
+        PGID: "${PGID:-1006}"
+      context: ./docker/php
+    volumes:
+      - ./app:/var/www:rw
+      - composer:/home/www-data/.composer:rw
+    environment:
+      - PHP_DATE_TIMEZONE=${PHP_DATE_TIMEZONE:-Europe/Moscow}
+      - PHP_IDE_CONFIG=serverName=box
+      - PUID=${PUID}
+    user: www-data
+    depends_on:
+      - database_test
+    restart: unless-stopped
+    container_name: absolut-php
+    networks:
+      - absolut-network
+      - absolut-shoper-network
+
+  redis:
+    build:
+      context: ./docker/redis
+    volumes:
+      - redis_data:/data:rw
+    ports:
+      - "127.0.0.1:6803:6379"
+    restart: unless-stopped
+    container_name: absolut-redis
+    networks:
+      - absolut-shoper-network
+
+  database_test:
+    image: mysql:8
+    environment:
+      - TZ=${PHP_DATE_TIMEZONE:-Europe/Moscow}
+      - MYSQL_ROOT_PASSWORD=${DATABASE_ROOT_PASSWORD:-root}
+      - MYSQL_DATABASE=${DATABASE_NAME:-absolut_test}
+      - MYSQL_USER=${DATABASE_USER:-absolut_test}
+      - MYSQL_PASSWORD=${DATABASE_PASSWORD:-absolut_test}
+    ports:
+      - "127.0.0.1:63329:3306"
+    restart: unless-stopped
+    container_name: absolut-mysql
+    networks:
+      - absolut-shoper-network
+
+  socket:
+    image: quay.io/soketi/soketi:1.0-16-debian
+    environment:
+      - SOKETI_DEBUG=${SOKETI_DEBUG:-1}
+      - SOKETI_ADAPTER_DRIVER=${SOKETI_ADAPTER_DRIVER:-redis}
+      - SOKETI_DB_REDIS_HOST=${SOKETI_DB_REDIS_HOST:-redis}
+      - SOKETI_DB_REDIS_PORT=${SOKETI_DB_REDIS_PORT:-6379}
+      - SOKETI_DEFAULT_APP_ID=${SOKETI_DEFAULT_APP_ID:-soketi}
+      - SOKETI_DEFAULT_APP_KEY=${SOKETI_DEFAULT_APP_KEY:-soketi}
+      - SOKETI_DEFAULT_APP_SECRET=${SOKETI_DEFAULT_APP_SECRET:-soketi}
+      - SOKETI_DEFAULT_APP_USER_AUTHENTICATION=${SOKETI_DEFAULT_APP_USER_AUTHENTICATION:-true}
+    depends_on:
+      - redis
+    restart: unless-stopped
+    container_name: absolut-socket
+    networks:
+      - absolut-shoper-network

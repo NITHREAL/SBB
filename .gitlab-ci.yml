@@ -1,0 +1,123 @@
+stages:
+  - linter
+  - build_dev
+  - deploy_dev
+  - build_stage
+  - deploy_stage
+
+build_dev:
+  stage: deploy_dev
+  image: harbor.automacon.net/automacon/ssh-ci:latest
+  only:
+    - developer
+  when: manual
+  variables:
+    DEPLOYMENT_PATH: "/opt/absolut/backend"
+  before_script:
+    - eval $(ssh-agent -s)
+    - echo "$DEV_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config
+  script:
+    - cp ./.env.dev ./app/.env
+    - ssh $DEV_SSH_HOST -p $DEV_SSH_PORT -l $DEV_SSH_USER "sudo mkdir -p $DEPLOYMENT_PATH/app && sudo mkdir -p $DEPLOYMENT_PATH/app/{storage,vendor,var} && sudo mkdir -p $DEPLOYMENT_PATH/app/storage/framework/{views,sessions,cache} && sudo mkdir -p $DEPLOYMENT_PATH/app/storage/logs && sudo chown -R deploy:deploy $DEPLOYMENT_PATH/"
+    - rsync -arlpcvz --no-p -e "ssh -o StrictHostKeyChecking=no -p $DEV_SSH_PORT" $(pwd)/ $DEV_SSH_USER@$DEV_SSH_HOST:$DEPLOYMENT_PATH/ --exclude "env.test" --exclude "env.prod" --exclude "app" --exclude ".git" --exclude ".gitignore" --exclude ".gitlab-ci.yml" --delete-after
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && cp -f ./docker/.env.docker.dev ./.env"
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-dev.yml build"
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "sudo chown -R deploy:deploy $DEPLOYMENT_PATH/"
+
+deploy_dev:
+  stage: deploy_dev
+  image: harbor.automacon.net/automacon/node-npm-ci:18.x
+  variables:
+    DEPLOYMENT_PATH: "/opt/absolut/backend"
+  before_script:
+    - eval $(ssh-agent -s)
+    - echo "$DEV_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config
+  script:
+    - cp ./.env.dev ./app/.env
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT sudo chown -R deploy:deploy $DEPLOYMENT_PATH/app
+    - rsync -rlpcvz --no-p -e "ssh -o StrictHostKeyChecking=no -p $DEV_SSH_PORT" ./app/ $DEV_SSH_USER@$DEV_SSH_HOST:$DEPLOYMENT_PATH/app/ --exclude ".env.dev" --exclude ".env.local" --exclude ".env.prod" --exclude "/vendor" --exclude "var" --exclude "storage" --delete-after
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && cp -f ./docker/.env.docker.dev ./.env"
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-dev.yml up -d --force-recreate"
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-dev.yml exec -T php /bin/bash -c \"COMPOSER_MEMORY_LIMIT=-1 composer install --prefer-dist --no-ansi --no-scripts --no-interaction --no-progress\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-dev.yml exec -T php /bin/bash -c \"./artisan config:cache\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-dev.yml exec -T php /bin/bash -c \"./artisan storage:link\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-dev.yml exec -T php /bin/bash -c \"./artisan route:cache\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-dev.yml exec -T php /bin/bash -c \"./artisan migrate --force\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-dev.yml exec -T php /bin/bash -c \"./artisan queue:restart\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-dev.yml exec -T php /bin/bash -c \"npm install\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-dev.yml exec -T php /bin/bash -c \"npm run dev\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-dev.yml exec -T php /bin/bash -c \"./artisan orchid:publish\""
+  only:
+    - developer
+
+build_stage:
+  stage: deploy_stage
+  image: harbor.automacon.net/automacon/ssh-ci:latest
+  only:
+    - stage
+  when: manual
+  variables:
+    DEPLOYMENT_PATH: "/opt/absolut-stage/backend"
+  before_script:
+    - eval $(ssh-agent -s)
+    - echo "$DEV_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config
+  script:
+    - cp ./.env.dev ./app/.env
+    - ssh $DEV_SSH_HOST -p $DEV_SSH_PORT -l $DEV_SSH_USER "sudo mkdir -p $DEPLOYMENT_PATH/app && sudo mkdir -p $DEPLOYMENT_PATH/app/{storage,vendor,var} && sudo mkdir -p $DEPLOYMENT_PATH/app/storage/framework/{views,sessions,cache} && sudo mkdir -p $DEPLOYMENT_PATH/app/storage/logs && sudo chown -R deploy:deploy $DEPLOYMENT_PATH/"
+    - rsync -arlpcvz --no-p -e "ssh -o StrictHostKeyChecking=no -p $DEV_SSH_PORT" $(pwd)/ $DEV_SSH_USER@$DEV_SSH_HOST:$DEPLOYMENT_PATH/ --exclude "env.test" --exclude "env.prod" --exclude "app" --exclude ".git" --exclude ".gitignore" --exclude ".gitlab-ci.yml" --delete-after
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && cp -f ./docker/.env.docker.stage ./.env"
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-stage.yml build"
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "sudo chown -R deploy:deploy $DEPLOYMENT_PATH/"
+
+deploy_stage:
+  stage: deploy_stage
+  image: harbor.automacon.net/automacon/node-npm-ci:18.x
+  variables:
+    DEPLOYMENT_PATH: "/opt/absolut-stage/backend"
+  before_script:
+    - eval $(ssh-agent -s)
+    - echo "$DEV_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config
+    - cp ./.env.stage ./app/.env
+  script:
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT sudo chown -R deploy:deploy $DEPLOYMENT_PATH/app
+    - rsync -rlpcvz --no-p -e "ssh -o StrictHostKeyChecking=no -p $DEV_SSH_PORT" ./app/ $DEV_SSH_USER@$DEV_SSH_HOST:$DEPLOYMENT_PATH/app/ --exclude ".env.dev" --exclude ".env.stage" --exclude ".env.local" --exclude ".env.prod" --exclude "/vendor" --exclude "var" --exclude "storage" --delete-after
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && cp -f ./docker/.env.docker.stage ./.env"
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-stage.yml up -d --force-recreate"
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-stage.yml exec -T php /bin/bash -c \"COMPOSER_MEMORY_LIMIT=-1 composer install --prefer-dist --no-ansi --no-scripts --no-interaction --no-progress\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-stage.yml exec -T php /bin/bash -c \"./artisan config:cache\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-stage.yml exec -T php /bin/bash -c \"./artisan storage:link\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-stage.yml exec -T php /bin/bash -c \"./artisan route:cache\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-stage.yml exec -T php /bin/bash -c \"./artisan migrate --force\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-stage.yml exec -T php /bin/bash -c \"./artisan queue:restart\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-stage.yml exec -T php /bin/bash -c \"npm install\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-stage.yml exec -T php /bin/bash -c \"npm run dev\""
+    - ssh $DEV_SSH_HOST -l $DEV_SSH_USER -p $DEV_SSH_PORT "cd $DEPLOYMENT_PATH && sudo docker-compose -f ./docker-compose-stage.yml exec -T php /bin/bash -c \"./artisan orchid:publish\""
+  only:
+    - stage
+
+php-cs-fixer:
+  stage: linter
+  image: harbor.automacon.net/automacon/php-fpm-ci:8.1
+  before_script:
+    - mkdir -p $(pwd)/.composer-cache
+    - php /usr/bin/composer config -g cache-dir "$(pwd)/.composer-cache"
+    - cd app/
+    - COMPOSER_MEMORY_LIMIT=-1 php /usr/bin/composer install --prefer-dist --no-ansi --no-scripts --no-interaction --no-progress
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - .composer-cache/
+      - app/vendor/
+      - ./app/composer.lock
+  script:
+    - composer cs
+  only:
+    - merge_requests
+    - developer
+    - stage
+    - master
+  when: manual

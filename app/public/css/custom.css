@@ -1,0 +1,35 @@
+@import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css");
+
+.logout-button {
+    color: red;
+    display: flex;
+    background-color: #131415;
+    padding: 10px 17px;
+    border-radius: 5px;
+    width: 100%;
+    margin: 5px auto;
+    position: relative;
+    border: none;
+    span{
+        margin-left: 10px;
+    }
+}
+
+.logout-button .bi-box-arrow-left {
+    margin-right: 30px;
+}
+
+#widthless {
+    width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.disabled .ts-control, .form-control:disabled {
+    opacity: 1;
+    color: #000;
+}
+
+.leaflet-attribution-flag{
+    opacity: 0 !important;
+}
